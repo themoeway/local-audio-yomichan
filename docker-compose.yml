@@ -1,0 +1,13 @@
+services:
+  local-audio-yomichan:
+    build: .
+    container_name: local-audio-yomichan
+    ports:
+      - "5050:5050"
+    environment:
+      - WO_ANKI=1
+    volumes:
+      # Put your extracted "user_files" directory on the left side.
+      # It must contain folders like nhk16_files, jpod_files, etc.
+      - ./user_files:/app/plugin/user_files:rw
+    restart: unless-stopped
