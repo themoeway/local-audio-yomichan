@@ -1,7 +1,8 @@
 from typing import Final
 
 APP_NAME: Final = "local-audio-yomichan"
-HOSTNAME: Final = "127.0.0.1"
+# Bind to all interfaces so the server can be reached by other devices on the LAN.
+HOSTNAME: Final = "0.0.0.0"
 PORT: Final = 5050
 DB_FILE_NAME: Final = "entries.db"
 ANDROID_DB_FILE_NAME: Final = "android.db"

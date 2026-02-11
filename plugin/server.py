@@ -200,7 +200,8 @@ class LocalAudioHandler(http.server.SimpleHTTPRequestHandler):
                     name = audio_source.data.display % row[DISPLAY]
                 else:
                     name = audio_source.data.display
-                url = audio_source.construct_file_url(file)
+                request_host = self.headers.get("X-Forwarded-Host") or self.headers.get("Host") or ""
+                url = audio_source.construct_file_url(file, host=request_host)
                 entry = {"name": name, "url": url}
                 audio_sources_json_list.append(entry)
 
