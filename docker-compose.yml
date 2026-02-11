@@ -9,5 +9,5 @@ services:
     volumes:
       # Put your extracted "user_files" directory on the left side.
       # It must contain folders like nhk16_files, jpod_files, etc.
-      - ./user_files:/app/plugin/user_files:rw
+      - /mnt/cache/appdata/yomichanaudio:/app/plugin/user_files:rw
     restart: unless-stopped
