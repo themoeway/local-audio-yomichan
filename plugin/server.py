@@ -153,7 +153,8 @@ class LocalAudioHandler(http.server.SimpleHTTPRequestHandler):
         self.wfile.write(payload)
 
     def do_GET(self):
-        print("GET:", self.path)
+        request_host = self.headers.get("X-Forwarded-Host") or self.headers.get("Host") or ""
+        print(f"[http] GET {self.path} (host={request_host})", flush=True)
 
         # https://stackoverflow.com/questions/7894384/python-get-url-path-sections
         parse_result = urlparse(self.path)
@@ -182,6 +183,11 @@ class LocalAudioHandler(http.server.SimpleHTTPRequestHandler):
             self.send_cors_response(400)
             return
 
+        print(
+            f"[lookup] term={qcomps.expression!r} reading={qcomps.reading!r} sources={qcomps.sources}",
+            flush=True,
+        )
+
         audio_sources_json_list = []
         with sqlite3.connect(get_db_file()) as connection:
             rows = execute_query(connection, qcomps)
@@ -200,7 +206,6 @@ class LocalAudioHandler(http.server.SimpleHTTPRequestHandler):
                     name = audio_source.data.display % row[DISPLAY]
                 else:
                     name = audio_source.data.display
-                request_host = self.headers.get("X-Forwarded-Host") or self.headers.get("Host") or ""
                 url = audio_source.construct_file_url(file, host=request_host)
                 entry = {"name": name, "url": url}
                 audio_sources_json_list.append(entry)
@@ -208,7 +213,8 @@ class LocalAudioHandler(http.server.SimpleHTTPRequestHandler):
         # Build JSON that Yomitan requires
         # Ref: https://github.com/yomidevs/yomitan/blob/master/ext/data/schemas/custom-audio-list-schema.json
         resp = {"type": "audioSourceList", "audioSources": audio_sources_json_list}
-        print(audio_sources_json_list)
+        print(f"[lookup] found {len(audio_sources_json_list)} audio candidates", flush=True)
+        print(audio_sources_json_list, flush=True)
 
         # Writing the JSON contents with UTF-8
         payload = bytes(json.dumps(resp), "utf8")

@@ -13,7 +13,7 @@ if __name__ == "__main__":
     attempt_init_data_dir()
     attempt_init_db()
 
-    print("Running local audio server in debug mode...")
+    print("Running local audio server in debug mode...", flush=True)
     httpd = DebugTCPServer((HOSTNAME, PORT), LocalAudioHandler)
     httpd.serve_forever()
 

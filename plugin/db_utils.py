@@ -177,11 +177,19 @@ def attempt_init_db():
     """
     attempts to initialize the db if necessary
     """
+    has_data = table_exists_and_has_data()
+    if not has_data:
+        print("[db] entries table missing or empty; initializing database...", flush=True)
+        init_db()
+        return
 
-    if not table_exists_and_has_data():
+    must_update = table_must_be_updated()
+    if must_update:
+        print("[db] database schema/data version is outdated; rebuilding database...", flush=True)
         init_db()
-    elif table_must_be_updated():
-        init_db()
+        return
+
+    print("[db] database already initialized and up to date; skipping rebuild.", flush=True)
 
 
 def update_db_version():
