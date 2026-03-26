@@ -20,7 +20,7 @@ from .util import (
     get_version_file,
     QueryComponents,
 )
-from .jp_util import is_hiragana
+from .jp_util import is_hiragana, katakana_to_hiragana
 #from .all_sources import ID_TO_SOURCE_MAP, SOURCES
 from .config import ALL_SOURCES
 from .consts import *
@@ -98,8 +98,9 @@ def android_write(og_cur, cur):
         INSERT INTO android (file, source, data) VALUES (?,?,?)
         """
 
+    # De-dup rows by file+source to avoid inserting the same audio multiple times.
     all_files_query = f"""
-        SELECT file, source FROM entries
+        SELECT DISTINCT file, source FROM entries
         """
 
     rows = og_cur.execute(all_files_query).fetchall()
@@ -331,6 +332,76 @@ def fill_jmdict_forms(conn: sqlite3.Connection):
     conn.commit()
 
 
+def import_entry_and_pitch_sql(conn: sqlite3.Connection, callback: Optional[Callable[[str], None]] = None) -> int:
+    """
+    Import expanded entries from entry_and_pitch_db.sql if present.
+    This provides a full expansion that matches Yomitan Ultimate Audio.
+    """
+    sql_path = get_data_dir().joinpath(ENTRY_AND_PITCH_SQL_FILE_NAME)
+    if not sql_path.is_file():
+        return 0
+
+    if callback is not None:
+        callback("Importing entry_and_pitch_db.sql...")
+
+    cur = conn.cursor()
+    cur.execute("DROP TABLE IF EXISTS expanded_entries")
+    cur.execute(
+        """
+        CREATE TEMP TABLE expanded_entries (
+            id integer NOT NULL,
+            expression text NOT NULL,
+            reading text,
+            source text NOT NULL,
+            speaker text,
+            display text,
+            file text NOT NULL
+        )
+        """
+    )
+
+    conn.commit()
+    cur.execute("BEGIN")
+    with open(sql_path, encoding="utf-8") as f:
+        for line in f:
+            if not line.startswith("INSERT INTO entries VALUES"):
+                continue
+            line = line.replace("INSERT INTO entries", "INSERT INTO expanded_entries", 1)
+            cur.execute(line)
+    cur.execute("COMMIT")
+
+    before = cur.execute("SELECT COUNT(*) FROM entries").fetchone()[0]
+    sources = list(ALL_SOURCES.keys())
+    placeholders = ",".join(["?"] * len(sources))
+    cur.execute(
+        f"""
+        INSERT INTO entries (expression, reading, source, speaker, display, file)
+        SELECT e.expression,
+               CASE WHEN e.reading = '' THEN NULL ELSE e.reading END,
+               e.source, e.speaker, e.display, e.file
+        FROM expanded_entries e
+        WHERE e.source IN ({placeholders})
+          AND NOT EXISTS (
+              SELECT 1 FROM entries cur
+              WHERE cur.expression = e.expression
+                AND IFNULL(cur.reading, '') = IFNULL(e.reading, '')
+                AND cur.source = e.source
+                AND cur.file = e.file
+          )
+        """,
+        sources,
+    )
+    after = cur.execute("SELECT COUNT(*) FROM entries").fetchone()[0]
+
+    cur.execute("DROP TABLE IF EXISTS expanded_entries")
+    cur.close()
+    conn.commit()
+
+    added = after - before
+    print(f"(init_db) SQL expanded entries added: {added}")
+    return added
+
+
 def init_db(callback: Optional[Callable[[str], None]] = None):
     """
     callback is an optional function to inform the UI of the current action
@@ -416,15 +487,29 @@ def init_db(callback: Optional[Callable[[str], None]] = None):
         cursor.execute(create_idx_expr_reading_speaker_sql)
         cursor.close()
 
+        sql_path = get_data_dir().joinpath(ENTRY_AND_PITCH_SQL_FILE_NAME)
+        if sql_path.is_file():
+            import_entry_and_pitch_sql(connection, callback)
+            existing_sources = {
+                row[0]
+                for row in connection.execute("SELECT DISTINCT source FROM entries").fetchall()
+                if row and row[0]
+            }
+        else:
+            existing_sources = set()
+
         for source in ALL_SOURCES.values():
+            if source.data.id in existing_sources:
+                continue
             print(f"(init_db) Adding entries from {source.data.id}...")
             if callback is not None:
                 callback(f"Adding entries from {source.data.id}...")
             source.add_entries(connection)
 
-    if callback is not None:
-        callback("Backfilling entries using JMdict data...")
-    fill_jmdict_forms(connection)
+    if not sql_path.is_file():
+        if callback is not None:
+            callback("Backfilling entries using JMdict data...")
+        fill_jmdict_forms(connection)
 
     print("Finished initializing database!")
 
@@ -501,16 +586,24 @@ def execute_query(cursor: sqlite3.Connection, qcomps: QueryComponents) -> list[A
     #      reading
     #    """
 
-    if qcomps.reading is None: # do not check reading at all
+    if qcomps.reading is None:  # do not check reading at all
         params = [qcomps.expression]
         query_where = f"""
             expression = ?
         """
+        match_order = None
     else:
         params = [qcomps.expression, qcomps.reading]
         query_where = f"""
-            expression = ?
-            AND (reading IS NULL OR reading = ?)
+            (expression = ? OR reading = ?)
+        """
+        match_order = """
+            (CASE
+                WHEN expression = ? AND reading = ? THEN 0
+                WHEN expression = ? THEN 1
+                WHEN reading = ? THEN 2
+                ELSE 3
+            END)
         """
 
     # filters by sources if necessary
@@ -529,8 +622,13 @@ def execute_query(cursor: sqlite3.Connection, qcomps: QueryComponents) -> list[A
         """
         params += qcomps.user
 
+    query_order_parts = []
+    if match_order is not None:
+        query_order_parts.append(match_order)
+        params += [qcomps.expression, qcomps.reading, qcomps.expression, qcomps.reading]
+
     # orders by source
-    query_order = (
+    query_order_parts.append(
         "(CASE source "
         + "\n".join(f"WHEN ? THEN {i}" for i in range(len(qcomps.sources)))
         + " END)"
@@ -539,21 +637,22 @@ def execute_query(cursor: sqlite3.Connection, qcomps: QueryComponents) -> list[A
 
     # orders by speakers if necessary
     if len(qcomps.user) > 0:
-        query_order += (
-            ",\n(CASE speaker "
+        query_order_parts.append(
+            "(CASE speaker "
             + "\n".join(f"WHEN ? THEN {i}" for i in range(len(qcomps.user)))
             + " END)"
         )
         params += qcomps.user
+
+    query_order = ",\n".join(query_order_parts)
 
     query = f"""
         SELECT * FROM entries WHERE (
             {query_where}
         )
         ORDER BY
-          {query_order},
-          reading
-        """
+          {query_order}
+    """
 
     # print(query)
     # print(params)

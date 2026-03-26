@@ -2,6 +2,7 @@ from __future__ import annotations  # for Python 3.7-3.9
 
 import json
 import sqlite3
+from pathlib import Path
 from typing import Optional, Final, TypedDict
 # THIS REQUIRES A PIP INSTALL, making it impossible to use in Anki...
 #from typing_extensions import NotRequired
@@ -55,6 +56,40 @@ SQL: Final[
 
 
 class AJTJapaneseSource(AudioSource):
+    def _get_media_dir_name(self, index: AJTIndex) -> str:
+        media_dir = index.get("meta", {}).get("media_dir", None)
+        if isinstance(media_dir, str) and media_dir.strip():
+            candidate = media_dir.strip()
+        else:
+            candidate = "media"
+        base_dir = self.get_media_dir_path()
+        if base_dir.joinpath(candidate).is_dir():
+            return candidate
+        for fallback in ("media", "audio"):
+            if base_dir.joinpath(fallback).is_dir():
+                return fallback
+        return candidate
+
+    def _resolve_media_file_relpath(self, media_dir: str, word_file: str) -> Optional[str]:
+        base_dir = self.get_media_dir_path().joinpath(media_dir)
+        candidates: list[Path] = []
+
+        p = Path(word_file)
+        if p.suffix:
+            candidates.append(base_dir.joinpath(word_file))
+            for ext in (".mp3", ".ogg", ".opus", ".m4a", ".aac", ".flac", ".wav"):
+                if p.suffix.lower() != ext:
+                    candidates.append(base_dir.joinpath(str(p.with_suffix(ext))))
+        else:
+            for ext in (".mp3", ".ogg", ".opus", ".m4a", ".aac", ".flac", ".wav"):
+                candidates.append(base_dir.joinpath(word_file + ext))
+
+        for fullpath in candidates:
+            if fullpath.is_file():
+                relpath = fullpath.relative_to(self.get_media_dir_path())
+                return str(relpath)
+        return None
+
     def get_display_text(self, ajt_file: AJTFile) -> Optional[str]:
         """
         displays as katakana with number and downstep, i.e. "ヨ＼ム [1]"
@@ -89,18 +124,18 @@ class AJTJapaneseSource(AudioSource):
         with open(index_file, encoding="utf-8") as f:
             entries: AJTIndex = json.load(f)
             files = entries["files"]
+            media_dir = self._get_media_dir_name(entries)
 
             for expression, word_files in entries["headwords"].items():
                 for word_file in word_files:
-                    fullpath = self.get_media_dir_path().joinpath("media").joinpath(word_file)
-                    relpath = fullpath.relative_to(self.get_media_dir_path())
-                    if not fullpath.is_file():
+                    relpath = self._resolve_media_file_relpath(media_dir, word_file)
+                    if relpath is None:
                         continue
                     ajt_file = files.get(word_file, None)
                     if ajt_file is not None:
                         reading = ajt_file.get("kana_reading", None)
                         display = self.get_display_text(ajt_file)
-                        cur.execute(SQL, (expression, reading, self.data.id, display, str(relpath)))
+                        cur.execute(SQL, (expression, reading, self.data.id, display, relpath))
 
         cur.close()
         connection.commit()

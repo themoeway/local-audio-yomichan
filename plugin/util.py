@@ -180,4 +180,3 @@ class QueryComponents:
 
 AudioSourceJsonEntry = dict[str, str]
 AudioSourceJsonList = list[AudioSourceJsonEntry]
-

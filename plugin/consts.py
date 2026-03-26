@@ -10,6 +10,7 @@ JMDICT_FORMS_JSON_FILE_NAME: Final = "jmdict_forms.json"
 DEFAULT_CONFIG_FILE_NAME: Final = "default_config.json"
 CONFIG_FILE_NAME: Final = "config.json"
 LATEST_VERSION_FILE_NAME: Final = "version.txt"
+ENTRY_AND_PITCH_SQL_FILE_NAME: Final = "entry_and_pitch_db.sql"
 
 ROWID: Final = 0
 EXPRESSION: Final = 1

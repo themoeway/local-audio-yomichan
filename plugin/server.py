@@ -21,6 +21,7 @@ from .util import (
 from .consts import *
 from .config import ALL_SOURCES
 from .db_utils import execute_query
+from .jp_util import katakana_to_hiragana
 
 
 
@@ -122,6 +123,12 @@ class LocalAudioHandler(http.server.SimpleHTTPRequestHandler):
         # reading field should actually be optional, to query just for the term / expression
         if "reading" in parsed_qcomps:
             reading = parsed_qcomps["reading"][0]
+            if reading is not None:
+                reading = reading.strip()
+                if reading == "" or reading.lower() in ("null", "undefined"):
+                    reading = None
+                else:
+                    reading = katakana_to_hiragana(reading)
         else:
             reading = None
 
@@ -200,6 +207,17 @@ class LocalAudioHandler(http.server.SimpleHTTPRequestHandler):
                     name = audio_source.data.display % row[DISPLAY]
                 else:
                     name = audio_source.data.display
+
+                # add match type label if reading was provided (fallback logic)
+                if qcomps.reading is not None:
+                    row_expression = row[EXPRESSION]
+                    row_reading = row[READING]
+                    if qcomps.expression == row_expression and qcomps.reading == row_reading:
+                        name += " (Expression+Reading)"
+                    elif qcomps.expression == row_expression:
+                        name += " (Only Expression)"
+                    elif qcomps.reading == row_reading:
+                        name += " (Only Reading)"
                 url = audio_source.construct_file_url(file)
                 entry = {"name": name, "url": url}
                 audio_sources_json_list.append(entry)

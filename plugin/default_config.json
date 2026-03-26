@@ -13,10 +13,34 @@
       "display": "SMK8 %s"
     },
     {
+      "type": "ajt_jp",
+      "id": "daijisen",
+      "path": "daijisen_files",
+      "display": "Daijisen %s"
+    },
+    {
+      "type": "ajt_jp",
+      "id": "taas",
+      "path": "taas_files",
+      "display": "TAAS"
+    },
+    {
       "type": "forvo",
       "id": "forvo",
       "path": "forvo_files",
       "display": "Forvo (%s)"
+    },
+    {
+      "type": "flat",
+      "id": "forvo_ext",
+      "path": "forvo_ext_files",
+      "display": "Forvo Ext"
+    },
+    {
+      "type": "flat",
+      "id": "forvo_ext2",
+      "path": "forvo_ext2_files",
+      "display": "Forvo Ext2"
     },
     {
       "type": "jpod",

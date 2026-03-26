@@ -18,6 +18,7 @@ from .source.nhk16 import NHK16AudioSource
 from .source.forvo import ForvoAudioSource
 from .source.ajt_jp import AJTJapaneseSource
 from .source.ozk5 import OZK5AudioSource
+from .source.flat import FlatDirAudioSource
 
 from .consts import CONFIG_FILE_NAME, DEFAULT_CONFIG_FILE_NAME
 from .util import get_config_dir, get_data_dir, get_program_root_dir
@@ -29,7 +30,8 @@ SOURCE_TYPES: Final[dict[str, Type[AudioSource]]] = {
     "nhk": NHK16AudioSource,
     "forvo": ForvoAudioSource,
     "ajt_jp": AJTJapaneseSource,
-    "ozk5": OZK5AudioSource
+    "ozk5": OZK5AudioSource,
+    "flat": FlatDirAudioSource,
 }
 
 
