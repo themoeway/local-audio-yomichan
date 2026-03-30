@@ -19,7 +19,7 @@ from .util import (
     get_version_file,
 )
 from .consts import *
-from .config import ALL_SOURCES
+from .config import ALL_SOURCES, CONFIG
 from .db_utils import execute_query
 
 
@@ -200,7 +200,10 @@ class LocalAudioHandler(http.server.SimpleHTTPRequestHandler):
                     name = audio_source.data.display % row[DISPLAY]
                 else:
                     name = audio_source.data.display
-                url = audio_source.construct_file_url(file)
+
+                host = self.headers.get("Host", f"{CONFIG['host']}:{CONFIG['port']}")
+                scheme = self.headers.get("X-Forwarded-Proto", "http")
+                url = audio_source.construct_file_url(file, host, scheme)
                 entry = {"name": name, "url": url}
                 audio_sources_json_list.append(entry)
 
@@ -225,7 +228,7 @@ class LocalAudioHandler(http.server.SimpleHTTPRequestHandler):
 
 def run_server():
     # Else, run it in a separate thread so it doesn't block
-    httpd = http.server.ThreadingHTTPServer((HOSTNAME, PORT), LocalAudioHandler)
+    httpd = http.server.ThreadingHTTPServer((CONFIG["host"], CONFIG["port"]), LocalAudioHandler)
     server_thread = threading.Thread(target=httpd.serve_forever)
     server_thread.daemon = True
     server_thread.start()

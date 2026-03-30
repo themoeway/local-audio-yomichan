@@ -11,10 +11,6 @@ from ..util import (
     get_data_dir,
     URLComponents,
 )
-from ..consts import (
-    HOSTNAME,
-    PORT,
-)
 
 
 @dataclass
@@ -55,13 +51,13 @@ class AudioSource(ABC):
         """
         return filter(self.is_supported_audio_file_ext, self.get_media_dir_path().rglob("*"))
 
-    def construct_file_url(self, file_path: str):
+    def construct_file_url(self, file_path: str, host: str, scheme: str = "http"):
         """
         constructs url to get the audio file (as opposed to the url to get audio sources)
         """
         parts = URLComponents(
-            scheme="http",
-            netloc=f"{HOSTNAME}:{PORT}",
+            scheme=scheme,
+            netloc=host,
             path=f"{self.data.id}/{file_path}",
             params="",
             query="",
