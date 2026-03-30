@@ -1,5 +1,5 @@
 import socketserver
-from plugin.consts import HOSTNAME, PORT
+from plugin.config import CONFIG
 from plugin.server import LocalAudioHandler
 from plugin.db_utils import attempt_init_db
 from plugin.util import attempt_init_data_dir
@@ -14,6 +14,6 @@ if __name__ == "__main__":
     attempt_init_db()
 
     print("Running local audio server in debug mode...")
-    httpd = DebugTCPServer((HOSTNAME, PORT), LocalAudioHandler)
+    httpd = DebugTCPServer((CONFIG["host"], CONFIG["port"]), LocalAudioHandler)
     httpd.serve_forever()
 

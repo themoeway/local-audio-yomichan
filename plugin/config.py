@@ -41,6 +41,8 @@ class JsonConfigSource(TypedDict):
 
 
 class JsonConfig(TypedDict):
+    host: str
+    port: int
     sources: list[JsonConfigSource]
 
 
@@ -71,12 +73,11 @@ def read_config() -> JsonConfig:
     return config
 
 
-def get_all_sources() -> dict[str, AudioSource]:
+def get_all_sources(config: JsonConfig) -> dict[str, AudioSource]:
     """
     note: insertion order is important for this to work
     """
     sources = {}
-    config = read_config()
     for source_json in config["sources"]:
         id = source_json["id"]
         type = source_json["type"]
@@ -99,4 +100,5 @@ def get_all_sources() -> dict[str, AudioSource]:
     return sources
 
 
-ALL_SOURCES = get_all_sources()
+CONFIG = read_config()
+ALL_SOURCES = get_all_sources(CONFIG)
