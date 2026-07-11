@@ -200,7 +200,7 @@ class LocalAudioHandler(http.server.SimpleHTTPRequestHandler):
                     name = audio_source.data.display % row[DISPLAY]
                 else:
                     name = audio_source.data.display
-                url = audio_source.construct_file_url(file)
+                url = audio_source.construct_file_url(file, self.server.server_port)
                 entry = {"name": name, "url": url}
                 audio_sources_json_list.append(entry)
 
@@ -223,9 +223,14 @@ class LocalAudioHandler(http.server.SimpleHTTPRequestHandler):
         return
 
 
-def run_server():
+def run_server(port: int = PORT):
+    if isinstance(port, bool) or not isinstance(port, int):
+        raise TypeError("The local audio server port must be an integer")
+    if not 1 <= port <= 65535:
+        raise ValueError("The local audio server port must be between 1 and 65535")
+
     # Else, run it in a separate thread so it doesn't block
-    httpd = http.server.ThreadingHTTPServer((HOSTNAME, PORT), LocalAudioHandler)
+    httpd = http.server.ThreadingHTTPServer((HOSTNAME, port), LocalAudioHandler)
     server_thread = threading.Thread(target=httpd.serve_forever)
     server_thread.daemon = True
     server_thread.start()
