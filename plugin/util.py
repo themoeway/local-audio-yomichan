@@ -51,7 +51,7 @@ def get_program_root_dir():
 
 
 def get_anki_data_dir():
-    return get_program_root_dir() / "user_files"
+    return get_program_root_dir()
 
 
 get_anki_config_dir = get_anki_data_dir
@@ -81,21 +81,21 @@ get_win_config_dir = get_win_data_dir
 def get_linux_data_dir():
     xdg = os.environ.get("XDG_DATA_HOME", "")
     if not xdg.strip():
-        return Path.home() / ".local" / "share" / APP_NAME / "user_files"
+        return Path.home() / ".local" / "share" / APP_NAME
     else:
-        return Path(xdg) / APP_NAME / "user_files"
+        return Path(xdg) / APP_NAME
 
 
 def get_linux_config_dir():
     xdg = os.environ.get("XDG_CONFIG_HOME", "")
     if not xdg.strip():
-        return Path.home() / ".config" / APP_NAME / "user_files"
+        return Path.home() / ".config" / APP_NAME
     else:
-        return Path(xdg) / APP_NAME / "user_files"
+        return Path(xdg) / APP_NAME
 
 
 def get_mac_data_dir():
-    return Path.home() / "Library" / "Application Support" / APP_NAME / "user_files"
+    return Path.home() / "Library" / "Application Support" / APP_NAME
 
 
 get_mac_config_dir = get_mac_data_dir
@@ -108,15 +108,15 @@ def get_data_dir():
     env = Environment.check()
 
     if env == Environment.ANKI:
-        return get_anki_data_dir()
+        return get_anki_data_dir() / "user_files"
     elif env == Environment.WINDOWS:
-        return get_win_data_dir()
+        return get_win_data_dir() / "user_files"
     elif env == Environment.LINUX:
-        return get_linux_data_dir()
+        return get_linux_data_dir() / "user_files"
     elif env == Environment.DARWIN:
-        return get_mac_data_dir()
+        return get_mac_data_dir() / "user_files"
     else:
-        return get_anki_data_dir()
+        return get_anki_data_dir() / "user_files"
 
 
 def attempt_init_data_dir():
