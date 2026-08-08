@@ -218,6 +218,17 @@ plugin/user_files/config.json
 plugin/user_files/jmdict*.json
 plugin/meta.json
 
+
+entries.db
+entries_version.txt
+user_files/*_files/
+user_files/*_files
+user_files/*.db
+user_files/*.db-journal
+user_files/*.txt
+user_files/config.json
+user_files/jmdict*.json
+
 localaudio.ankiaddon
 zipped/
 

@@ -81,21 +81,21 @@ get_win_config_dir = get_win_data_dir
 def get_linux_data_dir():
     xdg = os.environ.get("XDG_DATA_HOME", "")
     if not xdg.strip():
-        return Path.home() / ".local" / "share" / APP_NAME
+        return Path.home() / ".local" / "share" / APP_NAME / "user_files"
     else:
-        return Path(xdg) / APP_NAME
+        return Path(xdg) / APP_NAME / "user_files"
 
 
 def get_linux_config_dir():
     xdg = os.environ.get("XDG_CONFIG_HOME", "")
     if not xdg.strip():
-        return Path.home() / ".config" / APP_NAME
+        return Path.home() / ".config" / APP_NAME / "user_files"
     else:
-        return Path(xdg) / APP_NAME
+        return Path(xdg) / APP_NAME / "user_files"
 
 
 def get_mac_data_dir():
-    return Path.home() / "Library" / "Application Support" / APP_NAME
+    return Path.home() / "Library" / "Application Support" / APP_NAME / "user_files"
 
 
 get_mac_config_dir = get_mac_data_dir
