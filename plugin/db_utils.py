@@ -529,6 +529,19 @@ def execute_query(cursor: sqlite3.Connection, qcomps: QueryComponents) -> list[A
         """
         params += qcomps.user
 
+    # filters by language
+    # replace later "LENGTH(file) < 4" with ISO code check
+    if qcomps.language == "ja":
+        query_where += f"""
+            AND NOT (source = 'forvo'
+            AND LENGTH(substr(file, 1, instr(file, '\\') - 1)) < 4)
+        """
+    else:
+        query_where += f"""
+            AND source = 'forvo'
+            AND file LIKE '{qcomps.language}\%'
+        """
+
     # orders by source
     query_order = (
         "(CASE source "
