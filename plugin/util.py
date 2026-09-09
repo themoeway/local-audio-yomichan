@@ -51,7 +51,7 @@ def get_program_root_dir():
 
 
 def get_anki_data_dir():
-    return get_program_root_dir() / "user_files"
+    return get_program_root_dir()
 
 
 get_anki_config_dir = get_anki_data_dir
@@ -108,15 +108,15 @@ def get_data_dir():
     env = Environment.check()
 
     if env == Environment.ANKI:
-        return get_anki_data_dir()
+        return get_anki_data_dir() / "user_files"
     elif env == Environment.WINDOWS:
-        return get_win_data_dir()
+        return get_win_data_dir() / "user_files"
     elif env == Environment.LINUX:
-        return get_linux_data_dir()
+        return get_linux_data_dir() / "user_files"
     elif env == Environment.DARWIN:
-        return get_mac_data_dir()
+        return get_mac_data_dir() / "user_files"
     else:
-        return get_anki_data_dir()
+        return get_anki_data_dir() / "user_files"
 
 
 def attempt_init_data_dir():
