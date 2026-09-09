@@ -11,6 +11,7 @@ import sqlite3
 from pathlib import Path
 from typing import Any, Callable, TypedDict, Optional
 from dataclasses import dataclass, field
+from concurrent.futures import ThreadPoolExecutor
 
 from .util import (
     get_android_db_file,
@@ -62,22 +63,23 @@ def android_gen():
     shutil.copy(original_db_path, android_db_path)
 
     with sqlite3.connect(android_db_path) as android_connection:
-        android_cursor = android_connection.cursor()
-        android_write(android_cursor, android_cursor)
-        android_cursor.close()
+        # bulk-load PRAGMAs (safe: PC builds, Android only reads)
+        android_connection.execute("PRAGMA synchronous = OFF")
+        android_connection.execute("PRAGMA journal_mode = OFF")
+        android_connection.execute("PRAGMA temp_store = MEMORY")
+        android_connection.execute("PRAGMA cache_size = -65536")
 
-    # with sqlite3.connect(original_db_path) as og_connection:
-    #    with sqlite3.connect(android_db_path) as android_connection:
-    #        android_cursor = android_connection.cursor()
-    #        og_cursor = og_connection.cursor()
-    #        android_write(og_cursor, android_cursor)
-    #        og_cursor.close()
-    #        android_cursor.close()
+        android_write(android_connection)
 
 
-# original cursor, android cursor
-def android_write(og_cur, cur):
-    drop_table_sql = f"DROP TABLE IF EXISTS android"
+def android_write(conn):
+    """
+    builds the `android` table by reading every distinct audio file
+    referenced in `entries` and storing its bytes as a blob.
+    """
+    cur = conn.cursor()
+
+    drop_table_sql = "DROP TABLE IF EXISTS android"
     create_table_sql = f"""
         CREATE TABLE android (
             id integer PRIMARY KEY NOT NULL,
@@ -92,31 +94,45 @@ def android_write(og_cur, cur):
     """
     cur.execute(drop_table_sql)
     cur.execute(create_table_sql)
-    cur.execute(create_index_sql)
 
-    sql = f"""
-        INSERT INTO android (file, source, data) VALUES (?,?,?)
-        """
+    insert_sql = "INSERT INTO android (file, source, data) VALUES (?,?,?)"
 
-    all_files_query = f"""
-        SELECT file, source FROM entries
-        """
+    # de-duplicate (file, source) pairs
+    all_files_query = "SELECT DISTINCT file, source FROM entries"
+    rows = cur.execute(all_files_query).fetchall()
 
-    rows = og_cur.execute(all_files_query).fetchall()
-    for row in rows:
-        file_name = row[0]
-        source_id = row[1]
-        source = ALL_SOURCES[source_id]
+    # cache expensive lookups outside the hot loop
+    data_dir = get_data_dir()
+    source_dirs = {sid: ALL_SOURCES[sid].get_media_dir_path() for sid in ALL_SOURCES}
 
-        full_file_path = os.path.join(
-            get_data_dir(), source.get_media_dir_path(), file_name
-        )
-        if not Path(full_file_path).is_file():
+    def read_one(item):
+        # returns a row tuple, or None if the file is missing
+        file_name, source_id = item
+        full_file_path = os.path.join(data_dir, source_dirs[source_id], file_name)
+        if not os.path.isfile(full_file_path):
             print(f"(android_write) Cannot find file: {full_file_path}")
-            continue
-
+            return None
         with open(full_file_path, "rb") as file:
-            cur.execute(sql, (file_name, source_id, file.read()))
+            return (file_name, source_id, file.read())
+
+    # batched insert + per-batch commit bounds memory;
+    # parallel reads speed up the I/O-bound file loading
+    BATCH_SIZE = 1000
+    batch = []
+    with ThreadPoolExecutor(max_workers=8) as pool:
+        for i in range(0, len(rows), BATCH_SIZE):
+            chunk = rows[i:i+BATCH_SIZE]
+            for row in pool.map(read_one, chunk):
+                if row is None:
+                    continue
+                batch.append(row)
+            if batch:
+                cur.executemany(insert_sql, batch)
+                conn.commit()
+                batch.clear()
+
+    cur.execute(create_index_sql)
+    cur.close()
 
 
 def table_exists_and_has_data() -> bool:
