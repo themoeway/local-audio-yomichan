@@ -174,6 +174,7 @@ class URLComponents(NamedTuple):
 class QueryComponents:
     expression: str
     reading: Optional[str]
+    language: str
     sources: list[str]
     user: list[str]
 

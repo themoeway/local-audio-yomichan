@@ -130,12 +130,17 @@ class LocalAudioHandler(http.server.SimpleHTTPRequestHandler):
         else:
             sources = list(ALL_SOURCES.keys())
 
+        if "language" in parsed_qcomps:
+            language = parsed_qcomps["language"][0][1:-1]
+        else:
+            language = "ja"
+        
         if "user" in parsed_qcomps:
             user = [u.strip() for u in parsed_qcomps["user"][0].split(",")]
         else:
             user = []
 
-        qcomps = QueryComponents(term, reading, sources, user)
+        qcomps = QueryComponents(term, reading, language, sources, user)
 
         return qcomps
 
